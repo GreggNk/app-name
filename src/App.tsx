@@ -1,3 +1,4 @@
+import { readSync } from 'fs';
 import React from 'react';
 
 import './App.css';
@@ -19,15 +20,7 @@ function App() {
       });
   }, []
   )
-  const [currentScenarioBe, setCurrentScenarioBe] = React.useState<string | undefined>()
-  React.useEffect(() => {
-    fetch('api/currentScenario')
-      .then((response) => response.json())
-      .then((data) => {
-        setCurrentScenarioBe(data.value)
-      });
-  }, []
-  )
+
   const [currentScenario, setCurrentScenario] = React.useState<string | undefined>()
   React.useEffect(() => {
     fetch('api/currentScenario')
@@ -39,8 +32,6 @@ function App() {
   )
 
   const onChange = (e: React.FormEvent<HTMLSelectElement>) => setCurrentScenario(e.currentTarget.value);
-
-
   const onStartClick = () => fetch('api/scenario/' + currentScenario)
     .then((data) => {
       console.log(data)
@@ -58,90 +49,62 @@ function App() {
 
   const [stopSignal, setStopSignal] = React.useState<string | undefined>();
   React.useEffect(() => {
+    let prevSignal = "stop";
+    const controller = new AbortController();
     const get = async () => {
       try {
-        const res = await fetch('api/data')
-        //if (typeof res === "string") {
-        setStopSignal(await res.text())
-
-        //}
+        const res = await fetch(`api/data/${prevSignal}`, { signal: controller.signal })
+        if (res.status != 200) {
+          await get();
+        } else {
+          console.log("sygnał po fetch data, a przed set response")
+          prevSignal = await res.text()
+          setStopSignal(prevSignal)
+          await get();
+        }
       } catch (e) {
         console.warn(e);
       }
-      get();
     }
     get();
+    return () => {
+      controller.abort();
+    }
   }, []
   )
-  const isWorking = stopSignal === "stop";
-
-
+  React.useEffect(() => {
+    fetch('api/currentScenario')
+      .then((response) => response.json())
+      .then((data) => {
+        setStopSignal(data.value)
+      });
+  }, []
+  )
+  const isWorking = stopSignal !== "stop";
 
   return (
-    <div>
-      <button disabled={!isWorking} onClick={onStartClick}>start</button>
-      <button disabled={isWorking} onClick={onStopClick}>stop</button>
-      <button onClick={addOne}>symulacja Stop</button>
-      <label>Choose a scenario:</label>
-      {currentScenario && <select name="scenarios" id="scenarios" onChange={onChange} value={currentScenario} disabled={!isWorking}>
-        {scenario?.map((scenario) => <option value={scenario.key}>{scenario.name}</option>)}
-      </select>}
-      <div>Current scenario {currentScenarioBe}</div>
-      <div>data: {stopSignal}</div>
+    <div className="ui hidden divider">
+      <p>
+        <div>
+          <label>Choose a scenario: </label>
+          {currentScenario && <select className="ui selection dropdown" name="scenarios" id="scenarios" onChange={onChange} value={currentScenario} disabled={isWorking}>
+            {scenario?.map((scenario) => <option value={scenario.key}>{scenario.name}</option>)}
+          </select>}
+        </div>
+        <div>
+          <button className="ui primary button" disabled={isWorking} onClick={onStartClick}>start</button>
+          <button className="ui button" disabled={!isWorking} onClick={onStopClick}>stop</button>
+        </div>
+      </p>
+
+      <div>
+        <button className="ui button" onClick={addOne}>symulacja Stop</button>
+      </div>
+
+      <div>data z fetch async api: {stopSignal}</div>
 
     </div>
   );
 }
 
-
 export default App;
-function props(props: any) {
-  throw new Error('Function not implemented.');
-}
-//for while
-//{currentScenario?.map((currentScenario) => currentScenario.value)}
-//defaultValue={currentScenario.value}
-//<div>selected scenario: {currentScenario}</div>
-//return (
-//  <div>
-//    <button onClick={start}>start</button>
-//    <button onClick={getData}>getData</button>
-//    <label>Choose a scenario:</label>
-//    {currentValue?.map((currentValue) => <select name="cars" id="cars" defaultValue={currentValue.key}>
-//      {scenario?.map((scenario) => <option value={scenario.key}>{scenario.name}</option>)}
-//    </select>)}
-//  </div>
-//);
-
-//const currentValue = React.useState();
-  //React.useEffect(() =>{
-  //  fetch('api/scenario/current')
-  //  .then((response) => response.json())
-  //
-  //},[]);
-
-  //const [currentValue, setCurrentValue] = React.useState<Scenario1[] | undefined>();
-  //React.useEffect(() => {
-  //  fetch('api/scenario/current')
-  //    .then((response) => response.json())
-  //    .then((data) => {
-  //      console.log(data)
-  //      setCurrentValue(data as Scenario1[])
-  //
-  //    })
-  //}, []);
-
-  //const Dropdown = ({options}) => {
-  //  const [selectedOption, setSelectedOption] = React.useState<Options[] | undefined>(options[0].value);
-  //  return (
-  //      <select
-  //        value={selectedOption}
-  //        onChange={e => setSelectedOption(e.target.value)}>
-  //        {options.map(o => (
-  //          <option key={o.value} value={o.value}>{o.label}</option>
-  //        ))}
-  //      </select>
-  //  );
-  //};
-
-  //const onChange = (event: { target: { value: React.SetStateAction<string>; }; }) => setCurrentValue(event.target.value);
